@@ -17,10 +17,10 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 WORK_DIR = REPO_ROOT.resolve()
 RESULTS_ROOT = WORK_DIR / "results"
 
-CODEX_BIN = os.getenv("CODEX_BIN", "codex")
-CODEX_MODEL = os.getenv("CODEX_MODEL", "gpt-5.4")
-CODEX_REASONING_EFFORT = os.getenv("CODEX_REASONING_EFFORT", "xhigh")
-CODEX_TIMEOUT_SECONDS = int(os.getenv("CODEX_TIMEOUT_SECONDS", "0")) or None
+CLAUDE_BIN = os.getenv("CLAUDE_BIN", "claude")
+CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "opus")
+CLAUDE_EFFORT = os.getenv("CLAUDE_EFFORT", "max")
+CLAUDE_TIMEOUT_SECONDS = int(os.getenv("CLAUDE_TIMEOUT_SECONDS", "0")) or None
 VERIFICATION_FILENAMES = ("verification.json", "verificationt.json")
 
 
@@ -76,26 +76,24 @@ def build_prompt(run_id: str, statement: str, proof: str) -> str:
     )
 
 
-def build_codex_command(run_id: str, statement: str, proof: str) -> List[str]:
+def build_claude_command(run_id: str, statement: str, proof: str) -> List[str]:
     return [
-        CODEX_BIN,
-        "exec",
-        "-C",
-        str(WORK_DIR),
-        "-m",
-        CODEX_MODEL,
-        "--config",
-        f"model_reasoning_effort={CODEX_REASONING_EFFORT}",
-        "--dangerously-bypass-approvals-and-sandbox",
+        CLAUDE_BIN,
+        "-p",
+        "--model",
+        CLAUDE_MODEL,
+        "--effort",
+        CLAUDE_EFFORT,
+        "--dangerously-skip-permissions",
         build_prompt(run_id=run_id, statement=statement, proof=proof),
     ]
 
 
-def run_codex_verification(run_id: str, statement: str, proof: str) -> Dict[str, Any]:
+def run_claude_verification(run_id: str, statement: str, proof: str) -> Dict[str, Any]:
     results_dir = _results_dir(run_id)
     results_dir.mkdir(parents=True, exist_ok=True)
     log_path = _log_path(run_id)
-    cmd = build_codex_command(run_id=run_id, statement=statement, proof=proof)
+    cmd = build_claude_command(run_id=run_id, statement=statement, proof=proof)
 
     started_at = datetime.now(timezone.utc).isoformat()
     try:
@@ -110,13 +108,13 @@ def run_codex_verification(run_id: str, statement: str, proof: str) -> Dict[str,
                 stdout=log_handle,
                 stderr=subprocess.STDOUT,
                 text=True,
-                timeout=CODEX_TIMEOUT_SECONDS,
+                timeout=CLAUDE_TIMEOUT_SECONDS,
                 check=False,
             )
     except subprocess.TimeoutExpired as exc:
         raise HTTPException(
             status_code=504,
-            detail=f"codex exec timed out after {exc.timeout} seconds. See log at {log_path}",
+            detail=f"claude -p timed out after {exc.timeout} seconds. See log at {log_path}",
         ) from exc
 
     verification_path = _verification_path(run_id)
@@ -124,7 +122,7 @@ def run_codex_verification(run_id: str, statement: str, proof: str) -> Dict[str,
         raise HTTPException(
             status_code=500,
             detail=(
-                f"codex exec failed with exit code {completed.returncode}. "
+                f"claude -p failed with exit code {completed.returncode}. "
                 f"See log at {log_path}"
             ),
         )
@@ -167,7 +165,7 @@ def health() -> Dict[str, str]:
 @app.post("/verify")
 def verify(request: VerifyRequest) -> Dict[str, Any]:
     run_id = _allocate_run_id(request.statement)
-    return run_codex_verification(
+    return run_claude_verification(
         run_id=run_id,
         statement=request.statement,
         proof=request.proof,

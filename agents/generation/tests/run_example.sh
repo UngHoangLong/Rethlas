@@ -3,8 +3,8 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PROBLEM_FILE="${PROBLEM_FILE:-data/example.md}"
-MODEL="${MODEL:-gpt-5.5}"
-REASONING_EFFORT="${REASONING_EFFORT:-xhigh}"
+MODEL="${MODEL:-opus}"
+EFFORT="${EFFORT:-max}"
 MAX_ITERATIONS="${MAX_ITERATIONS:-10}"
 
 if [[ "$PROBLEM_FILE" = /* ]]; then
@@ -66,11 +66,6 @@ prepare_references() {
   fi
 }
 
-extract_session_id() {
-  local log_file="$1"
-  awk -F'session id: ' 'NF > 1 { print $2; exit }' "$log_file"
-}
-
 format_duration() {
   local total="$1"
   printf "%02d:%02d:%02d" \
@@ -83,12 +78,12 @@ LOG_DIR="${LOG_DIR:-$ROOT_DIR/logs/$problem_rel/iter}"
 verified_path="$ROOT_DIR/results/$problem_rel/blueprint_verified.md"
 mkdir -p "$LOG_DIR"
 
-CODEX_VERSION="$(codex --version 2>/dev/null || echo 'unknown')"
+CLAUDE_VERSION="$(claude --version 2>/dev/null || echo 'unknown')"
 
 echo "========================================"
-echo " Codex:      $CODEX_VERSION"
+echo " Claude Code: $CLAUDE_VERSION"
 echo " Model:      $MODEL"
-echo " Effort:     $REASONING_EFFORT"
+echo " Effort:     $EFFORT"
 echo " Problem:    $PROBLEM_FILE"
 echo " Problem ID: $problem_rel"
 echo " References: $ref_dir"
@@ -127,7 +122,10 @@ cleanup_timer() {
 }
 trap cleanup_timer EXIT
 
-session_id=""
+# Pre-generate the session id ourselves instead of parsing it out of log
+# output after the fact (Codex's approach) -- `claude --session-id` accepts
+# a caller-supplied UUID directly, which is more robust across CLI versions.
+session_id="$(uuidgen | tr '[:upper:]' '[:lower:]')"
 
 for ((iter = 0; iter < MAX_ITERATIONS; iter += 1)); do
   log_file="$LOG_DIR/${problem_name}_iter_${iter}.md"
@@ -144,67 +142,62 @@ for ((iter = 0; iter < MAX_ITERATIONS; iter += 1)); do
 
     if (
       cd "$ROOT_DIR"
-      codex exec \
-        -C "$ROOT_DIR" \
-        -m "$MODEL" \
-        --config "model_reasoning_effort=\"$REASONING_EFFORT\"" \
-        --dangerously-bypass-approvals-and-sandbox \
+      claude -p \
+        --session-id "$session_id" \
+        --model "$MODEL" \
+        --effort "$EFFORT" \
+        --dangerously-skip-permissions \
         "$prompt"
     ) >"$log_file" 2>&1; then
-      codex_rc=0
+      claude_rc=0
     else
-      codex_rc=$?
+      claude_rc=$?
     fi
 
-    if [[ "$codex_rc" -ne 0 ]]; then
-      echo "codex exited with code $codex_rc at iter=$iter (see $log_file for details)" >&2
-      exit "$codex_rc"
-    fi
-
-    session_id="$(extract_session_id "$log_file")"
-    if [[ -z "$session_id" && ! -f "$verified_path" ]]; then
-      echo "Could not extract session id from $log_file" >&2
-      exit 1
+    if [[ "$claude_rc" -ne 0 ]]; then
+      echo "claude exited with code $claude_rc at iter=$iter (see $log_file for details)" >&2
+      exit "$claude_rc"
     fi
   elif ((iter % 2 == 1)); then
     if (
       cd "$ROOT_DIR"
-      codex exec resume "$session_id" \
-        -m "$MODEL" \
-        --config "model_reasoning_effort=\"$REASONING_EFFORT\"" \
-        --config "web_search=\"disabled\"" \
-        --dangerously-bypass-approvals-and-sandbox \
+      claude -p \
+        --resume "$session_id" \
+        --model "$MODEL" \
+        --effort "$EFFORT" \
+        --disallowedTools "WebSearch" \
+        --dangerously-skip-permissions \
         "Please continue. Do not use search tools like arxiv theorem search or web search. Please think deeply by yourself.
 "
     ) >"$log_file" 2>&1; then
-      codex_rc=0
+      claude_rc=0
     else
-      codex_rc=$?
+      claude_rc=$?
     fi
 
-    if [[ "$codex_rc" -ne 0 ]]; then
-      echo "codex exited with code $codex_rc at iter=$iter (see $log_file for details)" >&2
-      exit "$codex_rc"
+    if [[ "$claude_rc" -ne 0 ]]; then
+      echo "claude exited with code $claude_rc at iter=$iter (see $log_file for details)" >&2
+      exit "$claude_rc"
     fi
   else
     if (
       cd "$ROOT_DIR"
-      codex exec resume "$session_id" \
-        -m "$MODEL" \
-        --config "model_reasoning_effort=\"$REASONING_EFFORT\"" \
-        --config "web_search=\"live\"" \
-        --dangerously-bypass-approvals-and-sandbox \
+      claude -p \
+        --resume "$session_id" \
+        --model "$MODEL" \
+        --effort "$EFFORT" \
+        --dangerously-skip-permissions \
         "Please continue. You may now use search tools, such as arXiv theorem search and web search, during your reasoning, but please also think deeply by yourself.
 "
     ) >"$log_file" 2>&1; then
-      codex_rc=0
+      claude_rc=0
     else
-      codex_rc=$?
+      claude_rc=$?
     fi
 
-    if [[ "$codex_rc" -ne 0 ]]; then
-      echo "codex exited with code $codex_rc at iter=$iter (see $log_file for details)" >&2
-      exit "$codex_rc"
+    if [[ "$claude_rc" -ne 0 ]]; then
+      echo "claude exited with code $claude_rc at iter=$iter (see $log_file for details)" >&2
+      exit "$claude_rc"
     fi
   fi
 

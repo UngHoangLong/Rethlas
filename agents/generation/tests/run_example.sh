@@ -146,6 +146,7 @@ for ((iter = 0; iter < MAX_ITERATIONS; iter += 1)); do
         --session-id "$session_id" \
         --model "$MODEL" \
         --effort "$EFFORT" \
+        --mcp-config .mcp.json \
         --dangerously-skip-permissions \
         "$prompt"
     ) >"$log_file" 2>&1; then
@@ -166,6 +167,7 @@ for ((iter = 0; iter < MAX_ITERATIONS; iter += 1)); do
         --model "$MODEL" \
         --effort "$EFFORT" \
         --disallowedTools "WebSearch" \
+        --mcp-config .mcp.json \
         --dangerously-skip-permissions \
         "Please continue. Do not use search tools like arxiv theorem search or web search. Please think deeply by yourself.
 "
@@ -186,6 +188,7 @@ for ((iter = 0; iter < MAX_ITERATIONS; iter += 1)); do
         --resume "$session_id" \
         --model "$MODEL" \
         --effort "$EFFORT" \
+        --mcp-config .mcp.json \
         --dangerously-skip-permissions \
         "Please continue. You may now use search tools, such as arXiv theorem search and web search, during your reasoning, but please also think deeply by yourself.
 "

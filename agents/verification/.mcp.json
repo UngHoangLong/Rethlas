@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "verification_agent": {
+      "command": "../../.venv/bin/python3",
+      "args": ["./mcp/server.py"],
+      "cwd": "."
+    }
+  }
+}

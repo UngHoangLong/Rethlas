@@ -84,6 +84,8 @@ def build_claude_command(run_id: str, statement: str, proof: str) -> List[str]:
         CLAUDE_MODEL,
         "--effort",
         CLAUDE_EFFORT,
+        "--mcp-config",
+        ".mcp.json",
         "--dangerously-skip-permissions",
         build_prompt(run_id=run_id, statement=statement, proof=proof),
     ]

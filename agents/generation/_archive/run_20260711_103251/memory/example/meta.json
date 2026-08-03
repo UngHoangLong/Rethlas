@@ -1,0 +1,10 @@
+{
+  "problem_id": "example",
+  "created_at_utc": "2026-07-11T03:13:06.839484+00:00",
+  "updated_at_utc": "2026-07-11T03:13:06.839506+00:00",
+  "problem_file": "data/example.md",
+  "reference_dir": "data/example.refs",
+  "reference_dir_exists": false,
+  "statement": "Prove that every finite group of prime order is cyclic.",
+  "timestamp": "2026-07-11T00:00:00+07:00"
+}

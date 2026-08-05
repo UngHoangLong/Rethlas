@@ -138,7 +138,12 @@ for ((iter = 0; iter < MAX_ITERATIONS; iter += 1)); do
   echo "Starting iter=$iter -> $log_file"
 
   if [[ "$iter" -eq 0 ]]; then
-    prompt="Use AGENTS.md exactly to solve the math problem in ${PROBLEM_FILE}. Use problem_id=${problem_rel}. ${ref_prompt}"
+    resume_prompt=""
+    draft_path="$ROOT_DIR/results/$problem_rel/blueprint.md"
+    if [[ "${FORCE_FRESH:-0}" != "1" && -s "$draft_path" ]]; then
+      resume_prompt=" NOTE: A prior partial attempt exists for this problem_id. Before doing any new research, first read results/${problem_rel}/blueprint.md (the existing draft) and check memory/${problem_rel}/ (especially branch_states.jsonl, immediate_conclusions.jsonl, big_decisions.jsonl, events.jsonl) to see what has already been established, searched, or decided. Continue and refine that existing work rather than starting over from scratch -- unless you find the prior approach was fundamentally mistaken, in which case say so explicitly and explain why before switching direction."
+    fi
+    prompt="Use AGENTS.md exactly to solve the math problem in ${PROBLEM_FILE}. Use problem_id=${problem_rel}. ${ref_prompt}${resume_prompt}"
 
     if (
       cd "$ROOT_DIR"

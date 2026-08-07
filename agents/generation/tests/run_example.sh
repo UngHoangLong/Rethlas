@@ -6,6 +6,10 @@ PROBLEM_FILE="${PROBLEM_FILE:-data/example.md}"
 MODEL="${MODEL:-opus}"
 EFFORT="${EFFORT:-max}"
 MAX_ITERATIONS="${MAX_ITERATIONS:-10}"
+# Opus supports up to 128k output tokens via the API; Claude Code's own
+# default (64k) is too low for long research-proof blueprints and causes
+# hard mid-turn crashes ("exceeded the 64000 output token maximum").
+export CLAUDE_CODE_MAX_OUTPUT_TOKENS="${CLAUDE_CODE_MAX_OUTPUT_TOKENS:-128000}"
 
 if [[ "$PROBLEM_FILE" = /* ]]; then
   echo "PROBLEM_FILE must be relative to agents/generation: $PROBLEM_FILE" >&2
@@ -84,6 +88,7 @@ echo "========================================"
 echo " Claude Code: $CLAUDE_VERSION"
 echo " Model:      $MODEL"
 echo " Effort:     $EFFORT"
+echo " Max output: $CLAUDE_CODE_MAX_OUTPUT_TOKENS tokens"
 echo " Problem:    $PROBLEM_FILE"
 echo " Problem ID: $problem_rel"
 echo " References: $ref_dir"
